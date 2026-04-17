@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fmcp.dev/schemas/v0.1/composition.json",
+  "title": "fMCP Composition (MCP-aligned)",
+  "description": "v0.1-draft grammar whose call nodes are byte-identical to MCP tools/call inner shape: {name, arguments}. Bindings use 'as' for their identifier. Maps use 'map', 'each', 'do'.",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/compositionWithLet" },
+    { "$ref": "#/$defs/compositionReturnOnly" }
+  ],
+  "$defs": {
+    "compositionWithLet": {
+      "type": "object",
+      "required": ["let", "return"],
+      "properties": {
+        "let": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/binding" }
+        },
+        "return": { "$ref": "#/$defs/expression" },
+        "on_error": { "$ref": "#/$defs/expression" }
+      },
+      "additionalProperties": false
+    },
+    "compositionReturnOnly": {
+      "type": "object",
+      "required": ["return"],
+      "properties": {
+        "return": { "$ref": "#/$defs/expression" },
+        "on_error": { "$ref": "#/$defs/expression" }
+      },
+      "additionalProperties": false
+    },
+    "binding": {
+      "type": "object",
+      "required": ["as"],
+      "properties": {
+        "as": {
+          "type": "string",
+          "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "arguments": { "type": "object" },
+        "value": {},
+        "map": { "$ref": "#/$defs/expression" },
+        "each": {
+          "type": "string",
+          "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+        },
+        "do": { "$ref": "#/$defs/expression" },
+        "mode": {
+          "type": "string",
+          "enum": ["serial", "collect"]
+        }
+      },
+      "oneOf": [
+        { "required": ["name", "arguments"], "not": { "anyOf": [{"required": ["value"]}, {"required": ["map"]}] } },
+        { "required": ["value"], "not": { "anyOf": [{"required": ["name"]}, {"required": ["map"]}] } },
+        { "required": ["map", "each", "do"], "not": { "anyOf": [{"required": ["value"]}, {"required": ["name"]}] } }
+      ],
+      "additionalProperties": false
+    },
+    "expression": {
+      "oneOf": [
+        { "$ref": "#/$defs/reference" },
+        {
+          "type": "object",
+          "required": ["name", "arguments"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "arguments": { "type": "object" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["map", "each", "do"],
+          "properties": {
+            "map": { "$ref": "#/$defs/expression" },
+            "each": {
+              "type": "string",
+              "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+            },
+            "do": { "$ref": "#/$defs/expression" },
+            "mode": { "type": "string", "enum": ["serial", "collect"] }
+          },
+          "additionalProperties": false
+        },
+        { "$ref": "#/$defs/literal" }
+      ]
+    },
+    "reference": {
+      "description": "A string $name, optionally with dot-separated path segments. Path segments may be identifiers or non-negative integer indices. Does not match $$-escaped literals (those are literals, not references).",
+      "type": "string",
+      "pattern": "^\\$[a-zA-Z_][a-zA-Z0-9_]*(\\.([a-zA-Z_][a-zA-Z0-9_]*|0|[1-9][0-9]*))*$"
+    },
+    "literal": {
+      "description": "JSON literal. Strings starting with a single $ are references, not literals. Strings starting with $$ are literal strings (the escape form). Objects must not have top-level structural keys (name+arguments, or map).",
+      "oneOf": [
+        { "type": "number" },
+        { "type": "boolean" },
+        { "type": "null" },
+        { "type": "string", "not": { "pattern": "^\\$[^$]" } },
+        { "type": "array" },
+        {
+          "type": "object",
+          "not": {
+            "anyOf": [
+              { "required": ["name", "arguments"] },
+              { "required": ["map"] }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
